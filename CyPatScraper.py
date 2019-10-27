@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import json
 import numpy
+import re
 import matplotlib.pyplot as plt
 import pandas as pt
 import scipy as stats
@@ -113,30 +114,6 @@ def assembleTeamData(teams):
         finishedTeamData[team] = tempDict
 
 
-# def polynomialRegression(teamNumber, OS):
-#     points = teamInfo[teamNumber][OS]
-#     X = []
-#     y = []
-#     # creates a list of points
-#     for point in points:
-#         firstX = point[0]
-#         firstY = point[1]
-#         if firstY is None:
-#             if firstX <= 4:
-#                 firstY = 0
-#             else:
-#                 firstY = 100
-#         X.append([firstX, firstY])
-#         y.append(firstY)
-#     poly = PolynomialFeatures(degree=6)
-#     X_poly = poly.fit_transform(X)
-#     poly.fit(X_poly, y)
-#     lin2 = LinearRegression()
-#     lin2.fit(X_poly, y)
-#     print(lin2)
-#     plt.plot(X, lin2.predict(poly.fit_transform(X)), color='red')
-#     plt.show()
-
 def separateGraph(teamData):
     # Receives a specific team's dict with images and coords
 
@@ -150,65 +127,54 @@ def determineDifficulty(OS):
 
 
 def main():
+    # Introduction to the program
+    print("Welcome to the CyberPatriot competition sentiment Analyzer!")
+    print("This program scans a number of teams and determines the difficulty of the image based on performance. "
+          "Select the number of teams you want to scan and let the program do the rest!")
+    print("\n--------\n")  # User experience
+    # Main program
     determineImage()
     numberOfTeams = int(input("How many teams do you want to run an analysis on?"))
+    print("\n--------\n")  # User experience
     teams = teamFinder(numberOfTeams)
     completed = 1
     for team in teams:
         accessTeamData(team)
-        print("Team " + str(completed) + " out of " + str(numberOfTeams))
+        teamScore = requests.get("http://scoreboard.uscyberpatriot.org/team.php?team=" + team)
+        soup = BeautifulSoup(teamScore.text, 'lxml')
+        score = int(soup.select("tr")[1].findChildren()[8].text)
+        print("Team " + str(completed) + " out of " + str(numberOfTeams) + " - Team Number: "
+              "" + team + " {" + str(score) + "}")
         completed += 1
         time.sleep(3)  # implemented so an error is not pulled because of too many requests
+    print("\n--------\n")  # User experience
     # At this point, the coordinate point dictionary is complete, so refined team data will be created
-    print(teamInfo)
     assembleTeamData(teams)
-    # creates a data set of all server slopes
-    serverSlopes = [finishedTeamData[team]["Server2016"]["avgSlope"] for team in teams]
-    # creates a data set of all server slopes
-    windowsSlopes = [finishedTeamData[team]["Windows10"]["avgSlope"] for team in teams]
-    # creates a data set of all server slopes
-    ubuntuSlopes = [finishedTeamData[team]["Ubuntu14"]["avgSlope"] for team in teams]
-    global finalData
-    finalData = {
-        "Server2016": {
-            "meanSlope": numpy.mean(serverSlopes),
-            "medianSlope": numpy.median(serverSlopes),
+    # adds final, overall information to finalData dictionary
+    for image in images:
+        tempSlopeList = [finishedTeamData[team][image]["avgSlope"] for team in teams]
+        finalData[image] = {
+            "meanSlope": numpy.mean(tempSlopeList),
+            "medianSlope": numpy.median(tempSlopeList),
             "modeSlope": 0,
             "rangeSlope": {
-                "min": sorted(serverSlopes)[0],
-                "max": sorted(serverSlopes)[-1]
-            }
-        },
-        "Windows10": {
-            "meanSlope": numpy.mean(windowsSlopes),
-            "medianSlope": numpy.median(windowsSlopes),
-            "modeSlope": 0,
-            "rangeSlope": {
-                "min": sorted(windowsSlopes)[0],
-                "max": sorted(windowsSlopes)[-1]
-            }
-        },
-        "Ubuntu14": {
-            "meanSlope": numpy.mean(ubuntuSlopes),
-            "medianSlope": numpy.median(ubuntuSlopes),
-            "modeSlope": 0,
-            "rangeSlope": {
-                "min": sorted(ubuntuSlopes)[0],
-                "max": sorted(ubuntuSlopes)[-1]
+                "min": sorted(tempSlopeList)[0],
+                "max": sorted(tempSlopeList)[-1]
             }
         }
-    }
-    # polynomialRegression(teams[4], "Server2016")
-    serverDifficulty = determineDifficulty("Server2016")
-    windowsDifficulty = determineDifficulty("Windows10")
-    ubuntuDifficulty = determineDifficulty("Ubuntu14")
-    return "Windows 10 is rated at " + str(windowsDifficulty) + "% difficulty\n" \
-           "Windows Server 2016 is rated at " + str(serverDifficulty) + "% difficulty\n" \
-           "Ubuntu 14 is rated at " + str(ubuntuDifficulty) + "% difficulty\n" \
-           "Good luck!"
+    # Determines difficulty and outputs result
+    output = ""
+    for image in images:
+        pleasingOutput = image
+        # Finds the index in which a space should be added (see Windows10 vs Windows 10)
+        # Didn't know how to break, so take the first index (first number in the string)
+        if re.search(r'\d', image):  # Checks if the image name actually has numbers in it
+            index = [i for i in range(len(image)) if image[i].isdigit()][0]
+            pleasingOutput = image[:index] + " " + image[index:]
+        output += pleasingOutput + " is rated at " + str(determineDifficulty(image)) + "% difficulty\n"
+    print(output + "\nGood luck!")
 
 
-print(main())
+main()
 # # print(finishedTeamData)
 # print(finalData)
-# determineImage()
