@@ -41,9 +41,9 @@ def createData(data, teamNumber):
 # Access the data for each team
 def accessTeamData(teamNumber):
     teamPage = "team.php?team=" + teamNumber
-    test = requests.get("http://scoreboard.uscyberpatriot.org/" + teamPage)  # Concatenates to find the URL
+    data = requests.get("http://scoreboard.uscyberpatriot.org/" + teamPage)  # Concatenates to find the URL
     # Finds where the block of necessary data is located (find returns a number) and parses out the pesky comma
-    teamData = test.text[test.text.find("arrayToDataTable("):test.text.find("]);")][:-7] + "]"
+    teamData = data.text[data.text.find("arrayToDataTable("):data.text.find("]);")][:-7] + "]"
     # Holy god, apparently a comma at the end of an array is such an agregious error that JSON cannot stand to bear it
     # Essentially, the comma is removed and a bracket added, aligning with the JSON format
     j_info = teamData.partition("ToDataTable(")[2].replace("'", '"')
@@ -109,7 +109,7 @@ def determineDifficulty(OS):
 
 
 def main():
-    numberOfTeams = 2
+    numberOfTeams = 100
     teams = teamFinder(numberOfTeams)
     completed = 1
     for team in teams:
