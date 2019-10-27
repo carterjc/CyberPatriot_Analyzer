@@ -13,29 +13,49 @@ import time
 teamInfo = {}  # stores coordinate points
 finishedTeamData = {}  # stores avgSlope and more metrics for each team and their OSs
 finalData = {}  # stores data to be looked at by the user (avgSlope for all of one OS, etc.)
+images = []
 
 
-# Create coordinate points
+def determineImage():
+    main_page = requests.get("http://scoreboard.uscyberpatriot.org/")  # makes initial request, recieves HTML
+    soup = BeautifulSoup(main_page.text, 'lxml')
+    # Finds the first team number (need this to get images)
+    # Actual team does not matter
+    firstTeam = ""
+    teamIndex = 1  # Index 0 is the table header
+    while firstTeam == "":
+        teamHTML = soup.select("tr")[1]
+        if teamHTML.select("td")[3].text == "Open":  # Makes sure the team is of Open division
+            firstTeam = teamHTML.attrs["href"][-7:]
+            break
+        teamIndex += 1
+    # Makes specific team request
+    team_page = requests.get("http://scoreboard.uscyberpatriot.org/team.php?team=" + firstTeam)
+    soup = BeautifulSoup(team_page.text, 'lxml')
+    numberOfImages = int(soup.select("tr")[1].findChildren()[4].text)  # Grabs the number of images
+    for i in range(3, numberOfImages + 3):
+        fullName = soup.select("tr")[i].findChildren()[0].text
+        images.append(fullName[:fullName.find("_")])  # Adds the refined image names to an array
+
+
+# parses JSON and assembles a list of coordinates
 def createData(data, teamNumber):
-    serverCoords = []
-    windowsCoords = []
-    ubuntuCoords = []
-    # Server 2016
-    for i in range(1, len(data)):  # Omits 0 because that gives information on the data itself, not coordinates
-        serverCoords.append(((i - 1) * 5, data[i][1]))
-    # Windows 10
-    for i in range(1, len(data)):
-        windowsCoords.append(((i - 1) * 5, data[i][3]))
-    # Ubuntu
-    for i in range(1, len(data)):
-        ubuntuCoords.append(((i - 1) * 5, data[i][2]))
-
-    # Adds the data to the dictionary under the team number
-    teamInfo[teamNumber] = {
-        "Server2016": serverCoords,
-        "Windows10": windowsCoords,
-        "Ubuntu14": ubuntuCoords
-    }
+    # Allows index of the specific image to be found (so the right coords are pulled)
+    newList = []
+    for value in data[0]:  # Creates a list mimicking CyPat's one, but with refined image names
+        # We expect a list that starts with Time and then lists the images
+        if "_" in value:
+            newList.append(value[:value.find("_")])
+        else:  # For the time value at index 0, just add it (real use expectation)
+            newList.append(value)
+    # Assembles the list of coordinates and places it into a temporary dictionary
+    tempDict = {}
+    for image in images:
+        tempList = []
+        for i in range(1, len(data)):  # Omits 0 because that gives information on the data itself, not coordinates
+            tempList.append(((i - 1) * 5, data[i][newList.index(image)]))
+        tempDict[image] = tempList
+    teamInfo[teamNumber] = tempDict
 
 
 # Access the data for each team
@@ -56,8 +76,14 @@ def teamFinder(numberOfTeams):
     main_page = requests.get("http://scoreboard.uscyberpatriot.org/")  # makes initial request, recieves HTML
     soup = BeautifulSoup(main_page.text, 'lxml')
     teams = []  # declares array that stores team links to be parsed
-    for i in range(1, numberOfTeams + 1):
-        teams.append(soup.select("tr")[i].attrs["href"][-7:])  # selects a given team and finds the link to their page
+    teamRank = 1
+    while len(teams) < numberOfTeams:
+        teamHTML = soup.select("tr")[teamRank]
+        # Makes sure the team is of Open division
+        if teamHTML.select("td")[3].text == "Open":
+            # selects a given team and finds the link to their page
+            teams.append(teamHTML.attrs["href"][-7:])
+        teamRank += 1
         # Also parses out the ugly link for easier use later on
     return teams
 
@@ -73,43 +99,59 @@ def findAvgSlope(teamNumber, OS):
     while lastPoint[1] is None:
         lastPoint = teamInfo[teamNumber][OS][lastIndex - 1]
         lastIndex -= 1
-    print(lastPoint, firstPoint)
     slope = (lastPoint[1]-firstPoint[1])/(lastPoint[0]-firstPoint[0])
     return slope
 
 
-def polynomialRegression(teamNumber, OS):
-    points = teamInfo[teamNumber][OS]
-    X = []
-    y = []
-    for point in points:
-        firstX = point[0]
-        firstY = point[1]
-        if firstY is None:
-            if firstX <= 4:
-                firstY = 0
-            else:
-                firstY = 100
-        X.append([firstX, firstY])
-        y.append(firstY)
-    poly = PolynomialFeatures(degree=6)
-    X_poly = poly.fit_transform(X)
-    poly.fit(X_poly, y)
-    lin2 = LinearRegression()
-    lin2.fit(X_poly, y)
-    print(lin2)
-    plt.plot(X, lin2.predict(poly.fit_transform(X)), color='red')
-    plt.show()
+def assembleTeamData(teams):
+    for team in teams:
+        tempDict = {}  # temporary dictionary to allow for nested dictionaries with x amount of key, values
+        for image in images:
+            tempDict[image] = {
+                "avgSlope": findAvgSlope(team, image)
+            }
+        finishedTeamData[team] = tempDict
+
+
+# def polynomialRegression(teamNumber, OS):
+#     points = teamInfo[teamNumber][OS]
+#     X = []
+#     y = []
+#     # creates a list of points
+#     for point in points:
+#         firstX = point[0]
+#         firstY = point[1]
+#         if firstY is None:
+#             if firstX <= 4:
+#                 firstY = 0
+#             else:
+#                 firstY = 100
+#         X.append([firstX, firstY])
+#         y.append(firstY)
+#     poly = PolynomialFeatures(degree=6)
+#     X_poly = poly.fit_transform(X)
+#     poly.fit(X_poly, y)
+#     lin2 = LinearRegression()
+#     lin2.fit(X_poly, y)
+#     print(lin2)
+#     plt.plot(X, lin2.predict(poly.fit_transform(X)), color='red')
+#     plt.show()
+
+def separateGraph(teamData):
+    # Receives a specific team's dict with images and coords
+
+    for coord in teamData:
+        h = h
 
 
 def determineDifficulty(OS):
-    # benchmarkSlope = .2
     difficulty = 22.5 * (finalData[OS]["meanSlope"] - 2) ** 2 + 10  # Based off of the graph of f(x)=22.5(x-2)^2+10
     return round(difficulty, 2)
 
 
 def main():
-    numberOfTeams = 100
+    determineImage()
+    numberOfTeams = int(input("How many teams do you want to run an analysis on?"))
     teams = teamFinder(numberOfTeams)
     completed = 1
     for team in teams:
@@ -117,28 +159,15 @@ def main():
         print("Team " + str(completed) + " out of " + str(numberOfTeams))
         completed += 1
         time.sleep(3)  # implemented so an error is not pulled because of too many requests
-    # At this point, the coordinate point dictionary is complete
-    for team in teams:
-        finishedTeamData[team] = {
-            "Server2016": {
-                "avgSlope": findAvgSlope(team, 'Server2016')
-            },
-            "Windows10": {
-                "avgSlope": findAvgSlope(team, 'Windows10')
-            },
-            "Ubuntu14": {
-                "avgSlope": findAvgSlope(team, 'Ubuntu14')
-            }
-        }
+    # At this point, the coordinate point dictionary is complete, so refined team data will be created
+    print(teamInfo)
+    assembleTeamData(teams)
     # creates a data set of all server slopes
-    serverSlopes = []
-    [serverSlopes.append(finishedTeamData[team]["Server2016"]["avgSlope"])for team in teams]
+    serverSlopes = [finishedTeamData[team]["Server2016"]["avgSlope"] for team in teams]
     # creates a data set of all server slopes
-    windowsSlopes = []
-    [windowsSlopes.append(finishedTeamData[team]["Windows10"]["avgSlope"])for team in teams]
+    windowsSlopes = [finishedTeamData[team]["Windows10"]["avgSlope"] for team in teams]
     # creates a data set of all server slopes
-    ubuntuSlopes = []
-    [ubuntuSlopes.append(finishedTeamData[team]["Ubuntu14"]["avgSlope"])for team in teams]
+    ubuntuSlopes = [finishedTeamData[team]["Ubuntu14"]["avgSlope"] for team in teams]
     global finalData
     finalData = {
         "Server2016": {
@@ -180,5 +209,6 @@ def main():
 
 
 print(main())
-# print(finishedTeamData)
-print(finalData)
+# # print(finishedTeamData)
+# print(finalData)
+# determineImage()

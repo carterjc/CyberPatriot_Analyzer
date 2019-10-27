@@ -68,7 +68,7 @@ def endResult(schoolTeams, numOfTeams):
     print("There were " + str(possibleTeamsLength) + " teams that matched your filter. Your school "
           "has " + str(numOfTeams) + ", so the results were off by " + str(abs(possibleTeamsLength - numOfTeams))
           + " teams.")
-    findData = str(input("Do you want to find the data for these teams? (Y/N)"))
+    # findData = str(input("Do you want to find the data for these teams? (Y/N)"))
 
 
 def main():
