@@ -106,24 +106,101 @@ def findAvgSlope(teamNumber, OS):
 
 def assembleTeamData(teams):
     for team in teams:
+        XData = separateGraphs(teamInfo[team])  # pulls the key xs that section the graph
+        minutesWithLowY = lowTeamYChanges(teamInfo[team])
         tempDict = {}  # temporary dictionary to allow for nested dictionaries with x amount of key, values
         for image in images:
             tempDict[image] = {
-                "avgSlope": findAvgSlope(team, image)
+                "avgSlope": findAvgSlope(team, image),
+                "importantXs": XData[image],
+                "lowChangeInY": minutesWithLowY[image]
             }
         finishedTeamData[team] = tempDict
 
 
-def separateGraph(teamData):
+def separateGraphs(teamData):
     # Receives a specific team's dict with images and coords
+    xDict = {}  # stores x values where the slope changed dramatically - image: [values]
+    for image in images:
+        coordList = [coord for coord in teamData[image] if not coord[1] is None]  # new list of points with no y = None
+        tempXList = []  # list of x values where slope change is dramatic
+        changeY = [(coordList[i][0], coordList[i][1] - coordList[i - 1][1])
+                   for i in range(1, len(coordList))]  # returns tuples of x value, change in y
+        compareIndex = 0
+        for i in range(1, len(changeY)):
+            if changeY[i][1] < changeY[i - 1][1] * .7:  # Compares current change to previous change *.5
+                tempXList.append(changeY[i - 1][0])  # Adds x value if true
+                # When the change falls dramatically, cut the previous portion of the graph off, then section the new
+                # remaining graph
+                compareIndex = i
+            if changeY[i - 1][1] < changeY[compareIndex][1] * .5:  # Compares change to starting change
+                tempXList.append(changeY[i][0])  # Adds x value where the overall change decreased by .5
+                compareIndex = i
+        xDict[image] = tempXList  # When all coords have been cycled through, add them to dictionary
+    return xDict
 
-    for coord in teamData:
-        h = h
+
+def lowTeamYChanges(teamData):  # determines the number of minutes in which the change in Y < 3 for a given team
+    minDict = {}
+    for image in images:
+        coordList = [coord for coord in teamData[image] if not coord[1] is None]  # new list of points with no y = None
+        changeY = [(coordList[i][0], coordList[i][1] - coordList[i - 1][1])
+                   for i in range(1, len(coordList))]  # returns tuples of x value, change in y
+        lowYChangeCount = 0
+        for value in changeY:
+            if value[1] <= 3:
+                lowYChangeCount += 1
+        minDict[image] = (lowYChangeCount * 5)/coordList[-1][0]
+    return minDict
+
+
+def avgLowYChanges(image):
+    avgLowY = 0
+    for team in finishedTeamData:
+        avgLowY += finishedTeamData[team][image]["lowChangeInY"]
+    return round((avgLowY/len(finishedTeamData)) * 100, 2)
 
 
 def determineDifficulty(OS):
     difficulty = 22.5 * (finalData[OS]["meanSlope"] - 2) ** 2 + 10  # Based off of the graph of f(x)=22.5(x-2)^2+10
     return round(difficulty, 2)
+
+
+def findDifficultTimes(image):  # Calculates the average time in which most teams start to slow down
+    avgX = 0
+    teamsCounted = 0  # If a team is skipped (doesn't have any x values) the entire average won't be weighted
+    for team in finishedTeamData:
+        if len(finishedTeamData[team][image]["importantXs"]) > 0:
+            avgX += finishedTeamData[team][image]["importantXs"][0]  # Grabs first point in which slope changed
+            teamsCounted += 1
+    return avgX/teamsCounted
+
+
+def assembleFinalData(teams):
+    for image in images:
+        tempSlopeList = [finishedTeamData[team][image]["avgSlope"] for team in teams]
+        finalData[image] = {
+            "meanSlope": numpy.mean(tempSlopeList),
+            "medianSlope": numpy.median(tempSlopeList),
+            "modeSlope": 0,
+            "rangeSlope": {
+                "min": sorted(tempSlopeList)[0],
+                "max": sorted(tempSlopeList)[-1]
+            },
+            "firstDifficultTime": findDifficultTimes(image),  # Finds the avg minute in which y change decreases
+            "pTimeWithLowYChange": avgLowYChanges(image)  # percent time with low y change
+        }
+    # Determines difficulty and outputs result
+    output = ""
+    for image in images:
+        pleasingOutput = image
+        # Finds the index in which a space should be added (see Windows10 vs Windows 10)
+        # Didn't know how to break, so take the first index (first number in the string)
+        if re.search(r'\d', image):  # Checks if the image name actually has numbers in it
+            index = [i for i in range(len(image)) if image[i].isdigit()][0]
+            pleasingOutput = image[:index] + " " + image[index:]
+        output += pleasingOutput + " is rated at " + str(determineDifficulty(image)) + "% difficulty\n"
+    print(output + "\nGood luck!")
 
 
 def main():
@@ -146,35 +223,14 @@ def main():
         print("Team " + str(completed) + " out of " + str(numberOfTeams) + " - Team Number: "
               "" + team + " {" + str(score) + "}")
         completed += 1
-        time.sleep(3)  # implemented so an error is not pulled because of too many requests
+        time.sleep(5)  # implemented so an error is not pulled because of too many requests
     print("\n--------\n")  # User experience
     # At this point, the coordinate point dictionary is complete, so refined team data will be created
     assembleTeamData(teams)
     # adds final, overall information to finalData dictionary
-    for image in images:
-        tempSlopeList = [finishedTeamData[team][image]["avgSlope"] for team in teams]
-        finalData[image] = {
-            "meanSlope": numpy.mean(tempSlopeList),
-            "medianSlope": numpy.median(tempSlopeList),
-            "modeSlope": 0,
-            "rangeSlope": {
-                "min": sorted(tempSlopeList)[0],
-                "max": sorted(tempSlopeList)[-1]
-            }
-        }
-    # Determines difficulty and outputs result
-    output = ""
-    for image in images:
-        pleasingOutput = image
-        # Finds the index in which a space should be added (see Windows10 vs Windows 10)
-        # Didn't know how to break, so take the first index (first number in the string)
-        if re.search(r'\d', image):  # Checks if the image name actually has numbers in it
-            index = [i for i in range(len(image)) if image[i].isdigit()][0]
-            pleasingOutput = image[:index] + " " + image[index:]
-        output += pleasingOutput + " is rated at " + str(determineDifficulty(image)) + "% difficulty\n"
-    print(output + "\nGood luck!")
+    assembleFinalData(teams)
 
 
 main()
 # # print(finishedTeamData)
-# print(finalData)
+print(finalData)
