@@ -3,12 +3,6 @@ from bs4 import BeautifulSoup
 import json
 import numpy
 import re
-import matplotlib.pyplot as plt
-import pandas as pt
-import scipy as stats
-import statistics
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression
 import time
 
 teamInfo = {}  # stores coordinate points
@@ -158,11 +152,52 @@ def avgLowYChanges(image):
     avgLowY = 0
     for team in finishedTeamData:
         avgLowY += finishedTeamData[team][image]["lowChangeInY"]
-    return round((avgLowY/len(finishedTeamData)) * 100, 2)
+    return round(avgLowY/len(finishedTeamData), 2)
 
 
-def determineDifficulty(OS):
-    difficulty = 22.5 * (finalData[OS]["meanSlope"] - 2) ** 2 + 10  # Based off of the graph of f(x)=22.5(x-2)^2+10
+def mapTo(oldMax, oldMin, newMax, newMin, oldValue):
+    oldRange = oldMax - oldMin
+    if oldRange == 0:
+        newValue = newMin
+    else:
+        newRange = newMax - newMin
+        newValue = (((oldValue - oldMin) * newRange)/oldRange) + newMin
+    return newValue
+
+
+def determineDifficulty(OS, teams):
+    # Creates adjusted average slope
+    slopeList = sorted([finishedTeamData[team][OS]["avgSlope"] for team in teams])
+    oldSlopeMax = slopeList[-1]
+    oldSlopeMin = slopeList[0]
+    oldSlopeValue = finalData[OS]["meanSlope"]
+    adjustedAvgSlope = mapTo(oldSlopeMax, oldSlopeMin, 1, 0, oldSlopeValue)
+
+    # Finds slope range
+    slopeRange = oldSlopeMax - oldSlopeMin
+    weightedSlopeRange = mapTo(oldSlopeMax, oldSlopeMin, 1, 0, slopeRange)
+
+    # firstDifficultTime
+    fDT = finalData[OS]["firstDifficultTime"]
+    fDTList = sorted([finishedTeamData[team][OS]["importantXs"][0] for team in finishedTeamData])
+    oldFDTMax = fDTList[-1]
+    oldFDTMin = fDTList[0]
+    weightedFDT = mapTo(oldFDTMax, oldFDTMin, 1, 0, fDT)
+
+    # timeWithLowY
+    avgTime = finalData[OS]["timeWithLowYChange"]
+    avgTimeList = sorted([finishedTeamData[team][OS]["lowChangeInY"] for team in finishedTeamData])
+    oldTimeMax = avgTimeList[-1]
+    oldTimeMin = avgTimeList[0]
+    weightedAvgTime = mapTo(oldTimeMax, oldTimeMin, 1, 0, avgTime)
+
+    # Creates one number to base the calculations off of
+    print(adjustedAvgSlope, weightedSlopeRange, weightedFDT, weightedAvgTime)
+    # Variable has the goal of determining the difficulty of an image
+    # If a variable increasing would represent an easier image, it was subtracted
+    weightedVariable = weightedAvgTime - weightedFDT + weightedSlopeRange - adjustedAvgSlope
+    # Calculates rating
+    difficulty = 22.5 * (weightedVariable - 2) ** 2 + 10  # Based off of the graph of f(x)=22.5(x-2)^2+10
     return round(difficulty, 2)
 
 
@@ -188,7 +223,7 @@ def assembleFinalData(teams):
                 "max": sorted(tempSlopeList)[-1]
             },
             "firstDifficultTime": findDifficultTimes(image),  # Finds the avg minute in which y change decreases
-            "pTimeWithLowYChange": avgLowYChanges(image)  # percent time with low y change
+            "timeWithLowYChange": avgLowYChanges(image)  # time with low y change
         }
     # Determines difficulty and outputs result
     output = ""
@@ -199,7 +234,7 @@ def assembleFinalData(teams):
         if re.search(r'\d', image):  # Checks if the image name actually has numbers in it
             index = [i for i in range(len(image)) if image[i].isdigit()][0]
             pleasingOutput = image[:index] + " " + image[index:]
-        output += pleasingOutput + " is rated at " + str(determineDifficulty(image)) + "% difficulty\n"
+        output += pleasingOutput + " is rated at " + str(determineDifficulty(image, teams)) + "% difficulty\n"
     print(output + "\nGood luck!")
 
 
