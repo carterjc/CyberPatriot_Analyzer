@@ -172,10 +172,13 @@ def determineDifficulty(OS, teams):
     oldSlopeMin = slopeList[0]
     oldSlopeValue = finalData[OS]["meanSlope"]
     adjustedAvgSlope = mapTo(oldSlopeMax, oldSlopeMin, 1, 0, oldSlopeValue)
+    print(oldSlopeValue, adjustedAvgSlope)
 
     # Finds slope range
     slopeRange = oldSlopeMax - oldSlopeMin
     weightedSlopeRange = mapTo(oldSlopeMax, oldSlopeMin, 1, 0, slopeRange)
+    print(oldSlopeMax, oldSlopeMin)
+    print(slopeRange, weightedSlopeRange)
 
     # firstDifficultTime
     fDT = finalData[OS]["firstDifficultTime"]
@@ -183,6 +186,7 @@ def determineDifficulty(OS, teams):
     oldFDTMax = fDTList[-1]
     oldFDTMin = fDTList[0]
     weightedFDT = mapTo(oldFDTMax, oldFDTMin, 1, 0, fDT)
+    print(fDT, weightedFDT)
 
     # timeWithLowY
     avgTime = finalData[OS]["timeWithLowYChange"]
@@ -190,15 +194,24 @@ def determineDifficulty(OS, teams):
     oldTimeMax = avgTimeList[-1]
     oldTimeMin = avgTimeList[0]
     weightedAvgTime = mapTo(oldTimeMax, oldTimeMin, 1, 0, avgTime)
+    print(avgTime, weightedAvgTime)
 
     # Creates one number to base the calculations off of
     print(adjustedAvgSlope, weightedSlopeRange, weightedFDT, weightedAvgTime)
     # Variable has the goal of determining the difficulty of an image
     # If a variable increasing would represent an easier image, it was subtracted
+
+    def moreDifficult(value):
+        return -22.5 * (value - 2) ** 2 + 100
+
+    def lessDifficult(value):
+        return 22.5 * (value - 2) ** 2 + 10
+
+    temp = lessDifficult(adjustedAvgSlope) + moreDifficult(weightedSlopeRange) + lessDifficult(weightedFDT) + moreDifficult(weightedAvgTime)
     weightedVariable = weightedAvgTime - weightedFDT + weightedSlopeRange - adjustedAvgSlope
     # Calculates rating
     difficulty = 22.5 * (weightedVariable - 2) ** 2 + 10  # Based off of the graph of f(x)=22.5(x-2)^2+10
-    return round(difficulty, 2)
+    return round(temp, 2)
 
 
 def findDifficultTimes(image):  # Calculates the average time in which most teams start to slow down
