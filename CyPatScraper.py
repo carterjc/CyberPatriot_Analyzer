@@ -166,38 +166,43 @@ def mapTo(oldMax, oldMin, newMax, newMin, oldValue):
 
 
 def determineDifficulty(OS, teams):
-    # Creates adjusted average slope
-    slopeList = sorted([finishedTeamData[team][OS]["avgSlope"] for team in teams])
-    oldSlopeMax = slopeList[-1]
-    oldSlopeMin = slopeList[0]
-    oldSlopeValue = finalData[OS]["meanSlope"]
-    adjustedAvgSlope = mapTo(oldSlopeMax, oldSlopeMin, 1, 0, oldSlopeValue)
+    # Method I want to develop, but don't have the time before R2 for
+    # Therefore going to be using a simple slope based calculation for the time being
 
-    # Finds slope range
-    slopeRange = oldSlopeMax - oldSlopeMin
-    weightedSlopeRange = mapTo(oldSlopeMax, oldSlopeMin, 1, 0, slopeRange)
+    # # Creates adjusted average slope
+    # slopeList = sorted([finishedTeamData[team][OS]["avgSlope"] for team in teams])
+    # oldSlopeMax = slopeList[-1]
+    # oldSlopeMin = slopeList[0]
+    # oldSlopeValue = finalData[OS]["meanSlope"]
+    # adjustedAvgSlope = mapTo(oldSlopeMax, oldSlopeMin, 1, 0, oldSlopeValue)
+    #
+    # # Finds slope range
+    # slopeRange = oldSlopeMax - oldSlopeMin
+    # weightedSlopeRange = mapTo(oldSlopeMax, oldSlopeMin, 1, 0, slopeRange)
+    #
+    # # firstDifficultTime
+    # fDT = finalData[OS]["firstDifficultTime"]
+    # fDTList = sorted([finishedTeamData[team][OS]["importantXs"][0] for team in finishedTeamData])
+    # oldFDTMax = fDTList[-1]
+    # oldFDTMin = fDTList[0]
+    # weightedFDT = mapTo(oldFDTMax, oldFDTMin, 1, 0, fDT)
+    #
+    # # timeWithLowY
+    # avgTime = finalData[OS]["timeWithLowYChange"]
+    # avgTimeList = sorted([finishedTeamData[team][OS]["lowChangeInY"] for team in finishedTeamData])
+    # oldTimeMax = avgTimeList[-1]
+    # oldTimeMin = avgTimeList[0]
+    # weightedAvgTime = mapTo(oldTimeMax, oldTimeMin, 1, 0, avgTime)
+    #
+    # # Creates one number to base the calculations off of
+    # print(adjustedAvgSlope, weightedSlopeRange, weightedFDT, weightedAvgTime)
+    # # Variable has the goal of determining the difficulty of an image
+    # # If a variable increasing would represent an easier image, it was subtracted
+    # weightedVariable = weightedAvgTime - weightedFDT + weightedSlopeRange - adjustedAvgSlope
+    # # Calculates rating
+    # difficulty = 22.5 * (weightedVariable - 2) ** 2 + 10  # Based off of the graph of f(x)=22.5(x-2)^2+10
 
-    # firstDifficultTime
-    fDT = finalData[OS]["firstDifficultTime"]
-    fDTList = sorted([finishedTeamData[team][OS]["importantXs"][0] for team in finishedTeamData])
-    oldFDTMax = fDTList[-1]
-    oldFDTMin = fDTList[0]
-    weightedFDT = mapTo(oldFDTMax, oldFDTMin, 1, 0, fDT)
-
-    # timeWithLowY
-    avgTime = finalData[OS]["timeWithLowYChange"]
-    avgTimeList = sorted([finishedTeamData[team][OS]["lowChangeInY"] for team in finishedTeamData])
-    oldTimeMax = avgTimeList[-1]
-    oldTimeMin = avgTimeList[0]
-    weightedAvgTime = mapTo(oldTimeMax, oldTimeMin, 1, 0, avgTime)
-
-    # Creates one number to base the calculations off of
-    print(adjustedAvgSlope, weightedSlopeRange, weightedFDT, weightedAvgTime)
-    # Variable has the goal of determining the difficulty of an image
-    # If a variable increasing would represent an easier image, it was subtracted
-    weightedVariable = weightedAvgTime - weightedFDT + weightedSlopeRange - adjustedAvgSlope
-    # Calculates rating
-    difficulty = 22.5 * (weightedVariable - 2) ** 2 + 10  # Based off of the graph of f(x)=22.5(x-2)^2+10
+    difficulty = 22.5 * (finalData[OS]["meanSlope"] - 2) ** 2 + 10  # Based off of the graph of f(x)=22.5(x-2)^2+10
     return round(difficulty, 2)
 
 
@@ -254,7 +259,9 @@ def main():
         accessTeamData(team)
         teamScore = requests.get("http://scoreboard.uscyberpatriot.org/team.php?team=" + team)
         soup = BeautifulSoup(teamScore.text, 'lxml')
-        score = int(soup.select("tr")[1].findChildren()[8].text)
+        score = soup.select("tr")[1].findChildren()[8].text
+        if score == "T" or score == "M":  # If there is a warning, grab the correct score (not the warning)
+            score = int(soup.select("tr")[1].findChildren()[9].text)
         print("Team " + str(completed) + " out of " + str(numberOfTeams) + " - Team Number: "
               "" + team + " {" + str(score) + "}")
         completed += 1
