@@ -1,9 +1,9 @@
-# CyberPatriotParser
+# CyberPatriot_Analyzer
 
-## CyPatScraper.py:
+## cypat_sentiment.py:
 
-Runs an analysis on the first x teams and determines the difficulty of an image.
+Runs an analysis on the first x teams and determines the difficulty of the images based on current performance.
 
-## schoolTeamFinder.py:
+## team_finder.py:
 
-Based on a set of filters (when you competed, what time, what state), a list of possible team numbers will be generated that might belong to your school.
+Based on a set of filters (competition date, UTC time, what state), a list of possible team numbers will be generated that belong to your parameters.
