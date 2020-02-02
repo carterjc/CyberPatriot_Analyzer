@@ -20,7 +20,7 @@ def determineImage():
     teamIndex = 1  # Index 0 is the table header
     while firstTeam == "":
         teamHTML = soup.select("tr")[1]
-        if teamHTML.select("td")[3].text == "Open":  # Makes sure the team is of Open division
+        if teamHTML.select("td")[3].text == "Open" and teamHTML.select("td")[4].text == "Platinum":  # Makes sure the team is of Open division
             firstTeam = teamHTML.attrs["href"][-7:]
             break
         teamIndex += 1
@@ -104,10 +104,12 @@ def assembleTeamData(teams):
         minutesWithLowY = lowTeamYChanges(teamInfo[team])
         tempDict = {}  # temporary dictionary to allow for nested dictionaries with x amount of key, values
         for image in images:
+            score = [coord for coord in teamInfo[team][image] if not coord[1] is None][-1][1]
             tempDict[image] = {
                 "avgSlope": findAvgSlope(team, image),
                 "importantXs": XData[image],
-                "lowChangeInY": minutesWithLowY[image]
+                "lowChangeInY": minutesWithLowY[image],
+                "score": score
             }
         finishedTeamData[team] = tempDict
 
@@ -216,6 +218,14 @@ def findDifficultTimes(image):  # Calculates the average time in which most team
     return avgX/teamsCounted
 
 
+def highestScore(image):
+    h_score = 0  # high score var
+    for team in finishedTeamData:
+        if finishedTeamData[team][image]["score"] > h_score:
+            h_score = finishedTeamData[team][image]["score"]
+    return h_score
+
+
 def assembleFinalData(teams):
     for image in images:
         tempSlopeList = [finishedTeamData[team][image]["avgSlope"] for team in teams]
@@ -227,6 +237,7 @@ def assembleFinalData(teams):
                 "min": sorted(tempSlopeList)[0],
                 "max": sorted(tempSlopeList)[-1]
             },
+            "highestScore": highestScore(image),
             "firstDifficultTime": findDifficultTimes(image),  # Finds the avg minute in which y change decreases
             "timeWithLowYChange": avgLowYChanges(image)  # time with low y change
         }
@@ -241,6 +252,24 @@ def assembleFinalData(teams):
             pleasingOutput = image[:index] + " " + image[index:]
         output += pleasingOutput + " is rated at " + str(determineDifficulty(image, teams)) + "% difficulty\n"
     print(output + "\nGood luck!")
+    # Creates output file
+    f = open("analysis_output.txt", "w+")
+    f.write("Image Analysis Output")
+    for image in images:
+        f.write(f"""
+\n\n{image}
+----------
+Average Slope: {finalData[image]["meanSlope"]}
+Median Slope: {finalData[image]["medianSlope"]}
+Mode Slope: {finalData[image]["modeSlope"]}
+Min Slope: {finalData[image]["rangeSlope"]["min"]}
+Max Slope: {finalData[image]["rangeSlope"]["max"]}
+Highest Score: {finalData[image]["highestScore"]}
+Minute When Difficulty Hit: {finalData[image]["firstDifficultTime"]}
+Percent Time with Low Slope: {finalData[image]["timeWithLowYChange"]}
+        """)
+    f.close()
+    print("Output written in analysis_output.txt.")
 
 
 def main():
@@ -274,5 +303,4 @@ def main():
 
 
 main()
-# # print(finishedTeamData)
 print(finalData)
