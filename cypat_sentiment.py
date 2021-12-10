@@ -204,7 +204,7 @@ def determineDifficulty(OS, teams):
     # # Calculates rating
     # difficulty = 22.5 * (weightedVariable - 2) ** 2 + 10  # Based off of the graph of f(x)=22.5(x-2)^2+10
 
-    difficulty = 22.5 * (finalData[OS]["meanSlope"] - 2) ** 2 + 10  # Based off of the graph of f(x)=22.5(x-2)^2+10
+    difficulty = 22.5 * (finalData[OS]["meanSlope"] - 1.5) ** 2 + 10  # Based off of the graph of f(x)=22.5(x-2)^2+10
     return round(difficulty, 2)
 
 
