@@ -13,7 +13,7 @@ images = []
 
 def determineImage():
     main_page = requests.get("http://scoreboard.uscyberpatriot.org/")  # makes initial request, recieves HTML
-    soup = BeautifulSoup(main_page.text, 'lxml')
+    soup = BeautifulSoup(main_page.text, 'html.parser')
     # Finds the first team number (need this to get images)
     # Actual team does not matter
     firstTeam = ""
@@ -26,7 +26,7 @@ def determineImage():
         teamIndex += 1
     # Makes specific team request
     team_page = requests.get("http://scoreboard.uscyberpatriot.org/team.php?team=" + firstTeam)
-    soup = BeautifulSoup(team_page.text, 'lxml')
+    soup = BeautifulSoup(team_page.text, 'html.parser')
     numberOfImages = int(soup.select("tr")[1].findChildren()[4].text)  # Grabs the number of images
     for i in range(3, numberOfImages + 3):
         fullName = soup.select("tr")[i].findChildren()[0].text
@@ -69,7 +69,7 @@ def accessTeamData(teamNumber):
 # Finds the teams to analyze
 def teamFinder(numberOfTeams):
     main_page = requests.get("http://scoreboard.uscyberpatriot.org/")  # makes initial request, recieves HTML
-    soup = BeautifulSoup(main_page.text, 'lxml')
+    soup = BeautifulSoup(main_page.text, 'html.parser')
     teams = []  # declares array that stores team links to be parsed
     teamRank = 1
     while len(teams) < numberOfTeams:
@@ -280,14 +280,14 @@ def main():
     print("\n--------\n")  # User experience
     # Main program
     determineImage()
-    numberOfTeams = int(input("How many teams do you want to run an analysis on?"))
+    numberOfTeams = int(input("How many teams do you want to run an analysis on? "))
     print("\n--------\n")  # User experience
     teams = teamFinder(numberOfTeams)
     completed = 1
     for team in teams:
         accessTeamData(team)
         teamScore = requests.get("http://scoreboard.uscyberpatriot.org/team.php?team=" + team)
-        soup = BeautifulSoup(teamScore.text, 'lxml')
+        soup = BeautifulSoup(teamScore.text, 'html.parser')
         score = soup.select("tr")[1].findChildren()[8].text
         if score == "T" or score == "M":  # If there is a warning, grab the correct score (not the warning)
             score = int(soup.select("tr")[1].findChildren()[9].text)
@@ -303,4 +303,4 @@ def main():
 
 
 main()
-print(finalData)
+# print(finalData)
